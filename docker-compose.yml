@@ -1,0 +1,22 @@
+services:
+  mongo:
+    image: mongo:6
+    container_name: mongo-marches
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    build: .
+    container_name: marches-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb+srv://yassmine:<yassmine123>@cluster0.grq4fir.mongodb.net/?appName=Cluster0
+      - SPRING_DATA_MONGODB_DATABASE=marchesdb
+    depends_on:
+      - mongo
+
+volumes:
+  mongo-data:
