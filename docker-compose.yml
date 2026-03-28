@@ -4,8 +4,15 @@ services:
     container_name: mongo-marches
     ports:
       - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=marchesdb
     volumes:
       - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build: .
@@ -13,10 +20,12 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - SPRING_DATA_MONGODB_URI=mongodb+srv://yassmine:<yassmine123>@cluster0.grq4fir.mongodb.net/?appName=Cluster0
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/marchesdb
       - SPRING_DATA_MONGODB_DATABASE=marchesdb
+      - APP_JWT_SECRET=dev34-super-secret-key-change-me-at-least-32-characters
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
 
 volumes:
   mongo-data:

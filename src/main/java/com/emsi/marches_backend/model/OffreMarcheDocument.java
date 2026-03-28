@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.index.TextIndexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDate;
@@ -28,9 +29,11 @@ public class OffreMarcheDocument {
     private String reference;
 
     @Schema(description = "Intitulé de l'appel d'offres", example = "Fourniture de matériel informatique")
+    @TextIndexed(weight = 3)
     private String intitule;
 
     @Schema(description = "Description détaillée")
+    @TextIndexed
     private String description;
 
     @Schema(description = "Organisme émetteur", example = "Ministère de l'Éducation")
