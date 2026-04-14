@@ -3,16 +3,23 @@ package com.emsi.marches_backend.service;
 import com.emsi.marches_backend.dto.ia.AnalyseResultDTO;
 import com.emsi.marches_backend.dto.ia.FiltreRechercheDTO;
 import com.emsi.marches_backend.dto.ia.RechercheResultatDTO;
+import com.emsi.marches_backend.event.OffreCollectedEvent;
 import com.emsi.marches_backend.model.OffreMarche;
+import com.emsi.marches_backend.model.OffreMarcheDocument;
 import com.emsi.marches_backend.model.RechercheIADocument;
 import com.emsi.marches_backend.repository.OffreMarcheRepository;
+import com.emsi.marches_backend.repository.OffreRepository;
 import com.emsi.marches_backend.repository.RechercheIADocumentRepository;
 import com.emsi.marches_backend.scraper.MarchePublicScraper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 @Slf4j
@@ -23,7 +30,9 @@ public class RechercheIAService {
     private final MarchePublicScraper scraper;
     private final GeminiService geminiService;
     private final OffreMarcheRepository offreMarcheRepository;
+    private final OffreRepository offreRepository;
     private final RechercheIADocumentRepository rechercheIADocumentRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // ── Méthode principale ────────────────────────────────────────────────────
@@ -56,6 +65,7 @@ public class RechercheIAService {
 
         // 4. Persistance en BDD
         persisterOffres(analysees, filtre);
+        publierCollectePourMatching(analysees);
         sauvegarderHistorique(filtre, userId, analysees.size());
 
         return RechercheResultatDTO.builder()
@@ -113,6 +123,75 @@ public class RechercheIAService {
                 log.warn("Erreur persistance offre : {}", e.getMessage());
             }
         }
+    }
+
+    private void publierCollectePourMatching(List<AnalyseResultDTO> offresAnalysees) {
+        List<OffreMarcheDocument> offresCollectees = new ArrayList<>();
+        for (AnalyseResultDTO dto : offresAnalysees) {
+            try {
+                String reference = construireReference(dto);
+                OffreMarcheDocument offre = offreRepository.findByReference(reference)
+                        .orElseGet(OffreMarcheDocument::new);
+
+                offre.setReference(reference);
+                offre.setIntitule(dto.getObjet());
+                offre.setDescription(dto.getResume());
+                offre.setOrganisme(dto.getMaitreDOuvrage());
+                offre.setSecteur(dto.getTypeMarche());
+                offre.setLocalisation(dto.getRegion());
+                offre.setUrlOfficielle(dto.getUrlDetail());
+                offre.setDatePublication(parseDate(dto.getDatePublication()));
+                offre.setDateCloture(parseDate(dto.getDateLimite()));
+
+                OffreMarcheDocument saved = offreRepository.save(offre);
+                offresCollectees.add(saved);
+            } catch (Exception e) {
+                log.warn("Erreur persistance offre pour matching: {}", e.getMessage());
+            }
+        }
+
+        if (!offresCollectees.isEmpty()) {
+            applicationEventPublisher.publishEvent(new OffreCollectedEvent(offresCollectees));
+        }
+    }
+
+    private String construireReference(AnalyseResultDTO dto) {
+        if (hasText(dto.getReferencePortail())) {
+            return dto.getReferencePortail().trim();
+        }
+        if (hasText(dto.getUrlDetail())) {
+            return "URL-" + Integer.toHexString(dto.getUrlDetail().trim().toLowerCase(Locale.ROOT).hashCode());
+        }
+        if (hasText(dto.getObjet())) {
+            return "OBJ-" + Integer.toHexString(dto.getObjet().trim().toLowerCase(Locale.ROOT).hashCode());
+        }
+        return "AUTO-" + UUID.randomUUID();
+    }
+
+    private LocalDate parseDate(String value) {
+        if (!hasText(value)) {
+            return null;
+        }
+
+        List<DateTimeFormatter> formatters = List.of(
+                DateTimeFormatter.ISO_LOCAL_DATE,
+                DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+                DateTimeFormatter.ofPattern("dd-MM-yyyy")
+        );
+
+        String trimmed = value.trim();
+        for (DateTimeFormatter formatter : formatters) {
+            try {
+                return LocalDate.parse(trimmed, formatter);
+            } catch (DateTimeParseException ignored) {
+                // Essai format suivant
+            }
+        }
+        return null;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     // ── Sauvegarde historique ─────────────────────────────────────────────────

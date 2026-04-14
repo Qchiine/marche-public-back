@@ -239,4 +239,28 @@ public class MarchePublicScraper {
     }
 
     private String nvl(String s) { return s != null ? s : ""; }
+
+    public long getDelayMs() {
+        return delayMs;
+    }
+
+    public int getTimeoutMs() {
+        return timeoutMs;
+    }
+
+    public boolean isUseMock() {
+        return useMock;
+    }
+
+    public void setDelayMs(long delayMs) {
+        this.delayMs = delayMs;
+    }
+
+    public void setTimeoutMs(int timeoutMs) {
+        this.timeoutMs = timeoutMs;
+    }
+
+    public void setUseMock(boolean useMock) {
+        this.useMock = useMock;
+    }
 }
