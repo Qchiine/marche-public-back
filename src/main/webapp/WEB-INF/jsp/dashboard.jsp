@@ -234,21 +234,21 @@
         </div>
 
         <div class="section">
-            <h2>🔍 Recherche IA - Marchés Publics</h2>
+            <h2>🔍 Recherche - Marchés Publics</h2>
 
             <div id="errorMessage" class="error" style="display: none;"></div>
             <div id="successMessage" class="success" style="display: none;"></div>
 
             <div class="search-form">
                 <input type="text" id="motsCles" placeholder="Mots-clés (ex: informatique)">
-                <select id="typeMarche">
-                    <option value="">-- Type de marché --</option>
-                    <option value="TRAVAUX">Travaux</option>
-                    <option value="FOURNITURES">Fournitures</option>
-                    <option value="SERVICES">Services</option>
+                <select id="secteur">
+                    <option value="">-- Secteur --</option>
+                    <option value="Travaux">Travaux</option>
+                    <option value="Fournitures">Fournitures</option>
+                    <option value="Services">Services</option>
                 </select>
-                <select id="region">
-                    <option value="">-- Région --</option>
+                <select id="localisation">
+                    <option value="">-- Localisation --</option>
                     <option value="Casablanca">Casablanca</option>
                     <option value="Rabat">Rabat</option>
                     <option value="Marrakech">Marrakech</option>
@@ -310,8 +310,8 @@
 
         async function performSearch() {
             const motsCles = document.getElementById('motsCles').value;
-            const typeMarche = document.getElementById('typeMarche').value;
-            const region = document.getElementById('region').value;
+            const secteur = document.getElementById('secteur').value;
+            const localisation = document.getElementById('localisation').value;
 
             if (!motsCles.trim()) {
                 showError('Veuillez entrer des mots-clés');
@@ -324,21 +324,26 @@
             hideMessages();
 
             try {
-                const response = await fetch('/api/recherche-ia', {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({
-                        motsCles: [motsCles],
-                        typeMarche: typeMarche || null,
-                        region: region || null,
-                        maxResults: 10
-                    })
+                // Fetch all offers and filter client-side
+                const response = await fetch('/api/offres', {
+                    method: 'GET',
+                    headers: getAuthHeaders()
                 });
 
                 if (response.ok) {
-                    const data = await response.json();
-                    displayResults(data.offres);
-                    showSuccess(`${data.offres.length} offre(s) trouvée(s)`);
+                    const offres = await response.json();
+
+                    // Filter based on search criteria
+                    const filtered = offres.filter(offre => {
+                        const motMatch = offre.intitule?.toLowerCase().includes(motsCles.toLowerCase()) ||
+                                        offre.description?.toLowerCase().includes(motsCles.toLowerCase());
+                        const secteurMatch = !secteur || offre.secteur === secteur;
+                        const locMatch = !localisation || offre.localisation === localisation;
+                        return motMatch && secteurMatch && locMatch;
+                    });
+
+                    displayResults(filtered);
+                    showSuccess(`${filtered.length} offre(s) trouvée(s)`);
                 } else if (response.status === 401) {
                     logout();
                 } else {
@@ -361,13 +366,14 @@
 
             resultsDiv.innerHTML = offres.map(offre => `
                 <div class="result-item">
-                    <h3>${offre.objet || 'Sans titre'}</h3>
-                    <p><strong>Maître d'ouvrage:</strong> ${offre.maitreDOuvrage || 'N/A'}</p>
-                    <p><strong>Type:</strong> ${offre.typeMarche || 'N/A'}</p>
-                    <p><strong>Région:</strong> ${offre.region || 'N/A'}</p>
-                    <p><strong>Budget:</strong> ${offre.budgetEstime || 'N/A'}</p>
-                    <p><strong>Limite:</strong> ${offre.dateLimite || 'N/A'}</p>
-                    <span class="score">Score: ${(offre.scorePertinence || 0).toFixed(2)}</span>
+                    <h3>${offre.intitule || 'Sans titre'}</h3>
+                    <p><strong>Organisme:</strong> ${offre.organisme || 'N/A'}</p>
+                    <p><strong>Secteur:</strong> ${offre.secteur || 'N/A'}</p>
+                    <p><strong>Localisation:</strong> ${offre.localisation || 'N/A'}</p>
+                    <p><strong>Description:</strong> ${(offre.description || 'N/A').substring(0, 150)}...</p>
+                    <p><strong>Publication:</strong> ${offre.datePublication || 'N/A'}</p>
+                    <p><strong>Clôture:</strong> ${offre.dateCloture || 'N/A'}</p>
+                    ${offre.urlOfficielle ? `<p><a href="${offre.urlOfficielle}" target="_blank">Voir l'offre</a></p>` : ''}
                 </div>
             `).join('');
         }
