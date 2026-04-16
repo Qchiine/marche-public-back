@@ -3,7 +3,8 @@
     "allow": [
       "Bash(git add:*)",
       "Bash(git commit -m \"feat: remove scraping functionality and switch to database-sourced offers:*)",
-      "Bash(git commit -m \"feat: add JSP interface for VeilleMarché application:*)"
+      "Bash(git commit -m \"feat: add JSP interface for VeilleMarché application:*)",
+      "Bash(git commit -m \"feat: remove IA analysis and Gemini integration:*)"
     ]
   }
 }
