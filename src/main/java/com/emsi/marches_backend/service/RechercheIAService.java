@@ -10,7 +10,6 @@ import com.emsi.marches_backend.model.RechercheIADocument;
 import com.emsi.marches_backend.repository.OffreMarcheRepository;
 import com.emsi.marches_backend.repository.OffreRepository;
 import com.emsi.marches_backend.repository.RechercheIADocumentRepository;
-import com.emsi.marches_backend.scraper.MarchePublicScraper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,8 +25,6 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class RechercheIAService {
-
-    private final MarchePublicScraper scraper;
     private final GeminiService geminiService;
     private final OffreMarcheRepository offreMarcheRepository;
     private final OffreRepository offreRepository;
@@ -38,10 +35,13 @@ public class RechercheIAService {
     // ── Méthode principale ────────────────────────────────────────────────────
     public RechercheResultatDTO rechercherEtAnalyser(FiltreRechercheDTO filtre, String userId) {
 
-        // 1. Scraping
-        log.info("Démarrage scraping marchespublics.gov.ma");
-        List<AnalyseResultDTO> offres = scraper.scraperOffres(filtre);
-        log.info("Offres scrapées : {}", offres.size());
+        // 1. Récupération des offres depuis la base de données
+        log.info("Récupération des offres depuis la base de données");
+        List<OffreMarcheDocument> offresMarcheDoc = offreRepository.findAll();
+        List<AnalyseResultDTO> offres = offresMarcheDoc.stream()
+                .map(this::convertToAnalyseResultDTO)
+                .toList();
+        log.info("Offres récupérées : {}", offres.size());
 
         if (offres.isEmpty()) {
             return RechercheResultatDTO.builder()
@@ -209,5 +209,19 @@ public class RechercheIAService {
                 .profilEntreprise(filtre.getProfilEntreprise())
                 .totalResultats(total)
                 .build());
+    }
+
+    // ── Conversion OffreMarcheDocument vers AnalyseResultDTO ─────────────────
+    private AnalyseResultDTO convertToAnalyseResultDTO(OffreMarcheDocument doc) {
+        return AnalyseResultDTO.builder()
+                .objet(doc.getIntitule())
+                .maitreDOuvrage(doc.getOrganisme())
+                .typeMarche(doc.getSecteur())
+                .region(doc.getLocalisation())
+                .urlDetail(doc.getUrlOfficielle())
+                .datePublication(doc.getDatePublication() != null ? doc.getDatePublication().toString() : null)
+                .dateLimite(doc.getDateCloture() != null ? doc.getDateCloture().toString() : null)
+                .source("database")
+                .build();
     }
 }
