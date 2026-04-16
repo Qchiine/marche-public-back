@@ -8,6 +8,7 @@ import com.emsi.marches_backend.model.enums.StatutCompteEnum;
 import com.emsi.marches_backend.repository.UtilisateurRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -19,6 +20,7 @@ public class UtilisateurService {
         this.utilisateurRepository = utilisateurRepository;
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public ProfilResponse validerQuestionnaire(String email, ProfilRequest request) {
         UtilisateurDocument utilisateur = utilisateurRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Utilisateur introuvable"));
