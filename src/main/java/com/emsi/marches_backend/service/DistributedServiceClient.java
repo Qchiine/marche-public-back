@@ -22,10 +22,6 @@ public class DistributedServiceClient {
 
     private final RestTemplate restTemplate;
 
-    /**
-     * Effectue un appel synchrone à un service distant
-     * Simule RMI (Remote Method Invocation)
-     */
     public <T> T callRemoteService(String serviceUrl, Object requestBody, Class<T> responseType) {
         try {
             log.info("Appel service distant: {}", serviceUrl);
@@ -72,9 +68,7 @@ public class DistributedServiceClient {
         }
     }
 
-    /**
-     * Effectue un appel avec retry automatique (pattern distribué)
-     */
+
     public <T> T callWithRetry(String serviceUrl, Object requestBody, Class<T> responseType, int maxRetries) {
         int attempt = 0;
         RestClientException lastException = null;
@@ -88,7 +82,7 @@ public class DistributedServiceClient {
                 attempt++;
                 if (attempt < maxRetries) {
                     try {
-                        // Backoff exponentiel: 1s, 2s, 4s
+
                         long delayMs = (long) Math.pow(2, attempt - 1) * 1000;
                         log.warn("Erreur tentative {}, retry dans {}ms", attempt, delayMs);
                         Thread.sleep(delayMs);

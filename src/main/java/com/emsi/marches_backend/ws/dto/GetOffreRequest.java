@@ -5,10 +5,7 @@ import jakarta.xml.bind.annotation.XmlAccessorType;
 import jakarta.xml.bind.annotation.XmlElement;
 import jakarta.xml.bind.annotation.XmlRootElement;
 
-/**
- * Request DTO pour Web Service SOAP
- * Format: XML avec éléments typés
- */
+
 @XmlRootElement(name = "getOffreRequest")
 @XmlAccessorType(XmlAccessType.FIELD)
 public class GetOffreRequest {

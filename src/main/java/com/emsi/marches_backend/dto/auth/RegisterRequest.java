@@ -18,5 +18,5 @@ public record RegisterRequest(
 
         @NotBlank(message = "Mot de passe obligatoire")
         @Size(min = 8, message = "Mot de passe minimum 8 caractères")
-        String motDePasse
+        String password
 ) {}

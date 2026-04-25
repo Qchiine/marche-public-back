@@ -23,9 +23,37 @@ services:
       - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/marchesdb
       - SPRING_DATA_MONGODB_DATABASE=marchesdb
       - APP_JWT_SECRET=dev34-super-secret-key-change-me-at-least-32-characters
+      - SPRING_MAIL_HOST=smtp.gmail.com
+      - SPRING_MAIL_USERNAME=aithalibi.yassmine@gmail.com
+      - SPRING_MAIL_PASSWORD=ddbw wbwy wztf dcbz
     depends_on:
       mongo:
         condition: service_healthy
+    networks:
+      - marche_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/swagger-ui.html"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: C:/Users/DELL/Documents/GitHub/marche-public-frontend
+      dockerfile: Dockerfile
+    container_name: marches-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8080
+    depends_on:
+      - backend
+    networks:
+      - marche_network
 
 volumes:
   mongo-data:
+
+networks:
+  marche_network:
+    driver: bridge

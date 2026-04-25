@@ -3,24 +3,25 @@ package com.emsi.marches_backend.controller;
 import com.emsi.marches_backend.dto.offre.OffreFilter;
 import com.emsi.marches_backend.dto.offre.OffreResponse;
 import com.emsi.marches_backend.service.OffreService;
+import com.emsi.marches_backend.service.ScrapingService;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/offres")
 public class OffreController {
 
     private final OffreService offreService;
+    private final ScrapingService scrapingService;
 
-    public OffreController(OffreService offreService) {
+    public OffreController(OffreService offreService, ScrapingService scrapingService) {
         this.offreService = offreService;
+        this.scrapingService = scrapingService;
     }
 
     @GetMapping("/search")
@@ -34,5 +35,19 @@ public class OffreController {
     ) {
         OffreFilter filter = new OffreFilter(motCle, secteur, dateMin, page, size, sort);
         return ResponseEntity.ok(offreService.searchByFilters(filter));
+    }
+
+    @PostMapping("/scrape")
+    public ResponseEntity<Map<String, Object>> scrapeOffres() {
+        Map<String, Object> result = scrapingService.scrapeOffres();
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/scrape-with-retry")
+    public ResponseEntity<Map<String, Object>> scrapeOffresWithRetry(
+            @RequestParam(name = "maxRetries", defaultValue = "3") int maxRetries
+    ) {
+        Map<String, Object> result = scrapingService.scrapeOffresWithRetry(maxRetries);
+        return ResponseEntity.ok(result);
     }
 }

@@ -43,7 +43,7 @@ public class AuthService {
         utilisateur.setNom(request.nom());
         utilisateur.setPrenom(request.prenom());
         utilisateur.setEmail(normalizedEmail);
-        utilisateur.setMotDePasseHash(passwordEncoder.encode(request.motDePasse()));
+        utilisateur.setMotDePasseHash(passwordEncoder.encode(request.password()));
         utilisateur.setRole(RoleEnum.USER);
         utilisateur.setStatut(StatutCompteEnum.PROFIL_INCOMPLET);
 

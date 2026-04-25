@@ -15,15 +15,17 @@ import org.springframework.xml.xsd.XsdSchema;
  * Configuration pour les Web Services SOAP
  * Active les endpoints SOAP et configure le dispatcher
  */
-@Configuration
-@EnableWs
+// @Configuration
+// @EnableWs
+// Désactivé temporairement - fichier offre.xsd manquant
+// À réactiver quand le fichier sera disponible
 public class WebServiceConfig extends WsConfigurerAdapter {
 
     /**
      * Configure le servlet SOAP dispatcher
      * Mappe les requêtes /ws/* vers le MessageDispatcherServlet
      */
-    @Bean
+    // @Bean
     public ServletRegistrationBean<MessageDispatcherServlet> messageDispatcherServlet(ApplicationContext applicationContext) {
         MessageDispatcherServlet servlet = new MessageDispatcherServlet();
         servlet.setApplicationContext(applicationContext);
@@ -35,7 +37,7 @@ public class WebServiceConfig extends WsConfigurerAdapter {
      * Définit le WSDL par défaut pour l'endpoint offre
      * Accessible à: http://localhost:8080/ws/offre.wsdl
      */
-    @Bean(name = "offre")
+    // @Bean(name = "offre")
     public DefaultWsdl11Definition defaultWsdl11Definition(XsdSchema offreSchema) {
         DefaultWsdl11Definition wsdl11Definition = new DefaultWsdl11Definition();
         wsdl11Definition.setPortTypeName("OffrePort");
@@ -48,7 +50,7 @@ public class WebServiceConfig extends WsConfigurerAdapter {
     /**
      * Charge le schéma XSD pour validation
      */
-    @Bean
+    // @Bean
     public XsdSchema offreSchema() {
         return new SimpleXsdSchema(new org.springframework.core.io.ClassPathResource("offre.xsd"));
     }
