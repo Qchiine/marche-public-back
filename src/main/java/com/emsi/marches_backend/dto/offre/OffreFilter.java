@@ -7,7 +7,10 @@ import java.time.LocalDate;
 public record OffreFilter(
         String motCle,
         String secteur,
+        String localisation,
+        String statut,
         LocalDate dateMin,
+        LocalDate dateLimiteMax,
         int page,
         int size,
         String sort

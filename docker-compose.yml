@@ -8,6 +8,8 @@ services:
       - MONGO_INITDB_DATABASE=marchesdb
     volumes:
       - mongo-data:/data/db
+    networks:
+      - marche_network
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -23,11 +25,14 @@ services:
       - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/marchesdb
       - SPRING_DATA_MONGODB_DATABASE=marchesdb
       - APP_JWT_SECRET=dev34-super-secret-key-change-me-at-least-32-characters
+      - APP_SCRAPING_API_URL=http://scraping:8000/scrape
       - SPRING_MAIL_HOST=smtp.gmail.com
       - SPRING_MAIL_USERNAME=aithalibi.yassmine@gmail.com
       - SPRING_MAIL_PASSWORD=ddbw wbwy wztf dcbz
     depends_on:
       mongo:
+        condition: service_healthy
+      scraping:
         condition: service_healthy
     networks:
       - marche_network
@@ -37,15 +42,35 @@ services:
       timeout: 5s
       retries: 5
 
+  scraping:
+    build:
+      context: C:/Users/DELL/Desktop/scraping
+      dockerfile: Dockerfile
+    container_name: marches-scraping
+    ports:
+      - "8000:8000"
+    networks:
+      - marche_network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   frontend:
     build:
-      context: C:/Users/DELL/Documents/GitHub/marche-public-frontend
+      context: C:/Users/DELL/Documents/GitHub/marche-public-frontend-
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8080
     container_name: marches-frontend
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://backend:8080
+      - API_INTERNAL_URL=http://backend:8080
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=change-this-to-a-random-secret-string-in-production
     depends_on:
       - backend
     networks:

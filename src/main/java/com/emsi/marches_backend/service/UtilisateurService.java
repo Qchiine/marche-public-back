@@ -29,6 +29,8 @@ public class UtilisateurService {
                 request.motsClesInteret(),
                 request.secteursChoisis(),
                 request.localisation(),
+                request.organismes(),
+                request.dateLimiteMax(),
                 request.frequenceNotification()
         );
 
@@ -55,6 +57,8 @@ public class UtilisateurService {
                 profil.getMotsCles(),
                 profil.getSecteurs(),
                 profil.getLocalisation(),
+                profil.getOrganismes(),
+                profil.getDateLimiteMax(),
                 profil.getFrequenceNotification()
         );
     }

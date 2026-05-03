@@ -32,7 +32,7 @@ class OffreServiceTest {
 
     @Test
     void searchByFilters_shouldMapDocumentToResponse() {
-        OffreFilter filter = new OffreFilter("informatique", "IT", LocalDate.of(2026, 3, 1), 0, 20, "pertinence");
+        OffreFilter filter = new OffreFilter("informatique", "IT", null, null, LocalDate.of(2026, 3, 1), null, 0, 20, "pertinence");
 
         OffreMarcheDocument offre = new OffreMarcheDocument();
         offre.setId("offre-1");
@@ -60,3 +60,4 @@ class OffreServiceTest {
         verify(offreRepository).searchByFilters(filter);
     }
 }
+

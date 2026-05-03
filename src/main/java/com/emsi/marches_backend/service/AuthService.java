@@ -56,7 +56,7 @@ public class AuthService {
         UtilisateurDocument utilisateur = utilisateurRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email ou mot de passe invalide"));
 
-        if (!passwordEncoder.matches(request.motDePasse(), utilisateur.getMotDePasseHash())) {
+        if (!passwordEncoder.matches(request.password(), utilisateur.getMotDePasseHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email ou mot de passe invalide");
         }
 

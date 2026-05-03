@@ -4,6 +4,7 @@ import com.emsi.marches_backend.model.SuiviDocument;
 import com.emsi.marches_backend.model.enums.SuiviStatut;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,4 +14,8 @@ public interface SuiviRepository extends MongoRepository<SuiviDocument, String> 
     List<SuiviDocument> findByUserIdOrderByUpdatedAtDesc(String userId);
 
     List<SuiviDocument> findByUserIdAndStatutOrderByUpdatedAtDesc(String userId, SuiviStatut statut);
+
+    long countByUserId(String userId);
+
+    long countByUserIdAndStatutIn(String userId, Collection<SuiviStatut> statuts);
 }

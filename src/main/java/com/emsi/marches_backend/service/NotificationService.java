@@ -4,15 +4,23 @@ import com.emsi.marches_backend.model.NotificationDocument;
 import com.emsi.marches_backend.model.OffreMarcheDocument;
 import com.emsi.marches_backend.model.ProfilRecherche;
 import com.emsi.marches_backend.model.UtilisateurDocument;
+import com.emsi.marches_backend.model.enums.NotificationFrequence;
+import com.emsi.marches_backend.model.enums.StatutCompteEnum;
 import com.emsi.marches_backend.repository.NotificationRepository;
 import com.emsi.marches_backend.repository.UtilisateurRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.text.Normalizer;
+import java.time.DayOfWeek;
+import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
+import java.util.Locale;
 
 @Slf4j
 @Service
@@ -23,80 +31,156 @@ public class NotificationService {
     private final UtilisateurRepository utilisateurRepository;
     private final EmailNotificationService emailNotificationService;
 
-    /**
-     * Crée des notifications pour tous les utilisateurs intéressés par une offre
-     */
     public void createNotificationsForOffer(OffreMarcheDocument offre) {
-        log.info("Création des notifications pour l'offre: {}", offre.getReference());
+        log.info("Creation des notifications pour l'offre: {}", offre.getReference());
 
-        // Récupérer tous les utilisateurs
         List<UtilisateurDocument> utilisateurs = utilisateurRepository.findAll();
 
         for (UtilisateurDocument utilisateur : utilisateurs) {
-            if (matchesUserProfile(offre, utilisateur.getProfil())) {
-                // Vérifier si notification existe déjà
+            if (utilisateur.getStatut() == StatutCompteEnum.ACTIF && matchesUserProfile(offre, utilisateur.getProfil())) {
                 if (!notificationRepository.existsByUserIdAndOffreId(utilisateur.getId(), offre.getId())) {
                     NotificationDocument notification = NotificationDocument.builder()
                             .userId(utilisateur.getId())
                             .offreId(offre.getId())
                             .referenceOffre(offre.getReference())
                             .titre(offre.getIntitule())
-                            .message("Nouvelle offre en " + offre.getSecteur() + " à " + offre.getLocalisation())
+                            .message("Nouvelle offre en " + offre.getSecteur() + " a " + offre.getLocalisation())
                             .lue(false)
                             .build();
 
                     NotificationDocument savedNotif = notificationRepository.save(notification);
-                    log.info("Notification créée pour utilisateur {} - Offre {}", utilisateur.getId(), offre.getReference());
+                    log.info("Notification creee pour utilisateur {} - Offre {}", utilisateur.getId(), offre.getReference());
 
-                    // Envoyer email asynchrone
-                    emailNotificationService.sendNewOfferNotification(utilisateur, offre, savedNotif);
+                    if (shouldSendEmail(utilisateur)) {
+                        emailNotificationService.sendNewOfferNotification(utilisateur, offre, savedNotif);
+                    } else {
+                        log.info("Email differe pour utilisateur {} selon la frequence {}", utilisateur.getEmail(),
+                                utilisateur.getProfil() != null ? utilisateur.getProfil().getFrequenceNotification() : NotificationFrequence.IMMEDIATE);
+                    }
                 }
             }
         }
     }
 
-    /**
-     * Vérifie si une offre match le profil de recherche d'un utilisateur
-     */
     private boolean matchesUserProfile(OffreMarcheDocument offre, ProfilRecherche profil) {
         if (profil == null) {
             return false;
         }
 
+        String secteur = normalize(offre.getSecteur());
+        String intitule = normalize(offre.getIntitule());
+        String description = normalize(offre.getDescription());
+        String organisme = normalize(offre.getOrganisme());
+        String localisation = normalize(offre.getLocalisation());
+        String reference = normalize(offre.getReference());
+        String searchableOffer = String.join(" ", secteur, intitule, description, organisme, localisation, reference);
+
         boolean matchSecteur = profil.getSecteurs() == null || profil.getSecteurs().isEmpty() ||
-                profil.getSecteurs().stream()
-                        .anyMatch(s -> offre.getSecteur() != null && offre.getSecteur().toLowerCase().contains(s.toLowerCase()));
+                profil.getSecteurs().stream().anyMatch(s -> matchesToken(searchableOffer, s));
 
         boolean matchLocalisation = profil.getLocalisation() == null || profil.getLocalisation().isEmpty() ||
-                (offre.getLocalisation() != null && offre.getLocalisation().toLowerCase().contains(profil.getLocalisation().toLowerCase()));
+                matchesToken(localisation, profil.getLocalisation());
 
         boolean matchMotsCles = profil.getMotsCles() == null || profil.getMotsCles().isEmpty() ||
-                profil.getMotsCles().stream()
-                        .anyMatch(mc -> (offre.getIntitule() != null && offre.getIntitule().toLowerCase().contains(mc.toLowerCase())) ||
-                                (offre.getDescription() != null && offre.getDescription().toLowerCase().contains(mc.toLowerCase())));
+                profil.getMotsCles().stream().anyMatch(mc -> matchesToken(searchableOffer, mc));
 
-        return matchSecteur && matchLocalisation && matchMotsCles;
+        boolean matchOrganismes = profil.getOrganismes() == null || profil.getOrganismes().isEmpty() ||
+                profil.getOrganismes().stream().anyMatch(org -> matchesToken(organisme, org));
+
+        boolean matchDateLimite = profil.getDateLimiteMax() == null ||
+                (offre.getDateCloture() != null && !offre.getDateCloture().isAfter(profil.getDateLimiteMax()));
+
+        return matchSecteur && matchLocalisation && matchMotsCles && matchOrganismes && matchDateLimite;
     }
 
-    public List<NotificationDocument> getUserNotifications(String userId, Pageable pageable) {
+    private boolean shouldSendEmail(UtilisateurDocument utilisateur) {
+        ProfilRecherche profil = utilisateur.getProfil();
+        NotificationFrequence frequence = profil != null && profil.getFrequenceNotification() != null
+                ? profil.getFrequenceNotification()
+                : NotificationFrequence.IMMEDIATE;
+
+        if (frequence == NotificationFrequence.IMMEDIATE) {
+            return true;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime windowStart = frequence == NotificationFrequence.DAILY
+                ? now.toLocalDate().atStartOfDay()
+                : now.toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).atStartOfDay();
+
+        return notificationRepository.findByUserIdOrderByDateCreationDesc(utilisateur.getId()).stream()
+                .filter(existing -> existing.getDateCreation() != null)
+                .noneMatch(existing -> !existing.getDateCreation().isBefore(windowStart));
+    }
+
+    private boolean matchesToken(String haystack, String rawToken) {
+        String token = normalize(rawToken);
+        if (token.isBlank()) {
+            return false;
+        }
+        if (haystack.isBlank()) {
+            return false;
+        }
+        if (haystack.contains(token) || token.contains(haystack)) {
+            return true;
+        }
+        for (String part : token.split("[^a-z0-9]+")) {
+            if (part.length() >= 3 && haystack.contains(part)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return "";
+        }
+        String normalized = Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "");
+        return normalized.toLowerCase(Locale.ROOT).trim();
+    }
+
+    public List<NotificationDocument> getUserNotifications(String email, Pageable pageable) {
+        String userId = resolveUserId(email);
         return notificationRepository.findByUserIdOrderByDateCreationDesc(userId);
     }
 
-    public NotificationDocument markAsRead(String notificationId) {
-        NotificationDocument notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new RuntimeException("Notification not found"));
+    public NotificationDocument markAsRead(String email, String notificationId) {
+        NotificationDocument notification = findOwnedNotification(email, notificationId);
         notification.setLue(true);
         return notificationRepository.save(notification);
     }
 
-    public void deleteNotification(String notificationId) {
-        notificationRepository.deleteById(notificationId);
+    public void deleteNotification(String email, String notificationId) {
+        NotificationDocument notification = findOwnedNotification(email, notificationId);
+        notificationRepository.delete(notification);
     }
 
-    public long countUnreadNotifications(String userId) {
+    public long countUnreadNotifications(String email) {
+        String userId = resolveUserId(email);
         return notificationRepository.findByUserIdOrderByDateCreationDesc(userId)
                 .stream()
                 .filter(n -> !n.isLue())
                 .count();
+    }
+
+    private NotificationDocument findOwnedNotification(String email, String notificationId) {
+        String userId = resolveUserId(email);
+        NotificationDocument notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification introuvable"));
+
+        if (!userId.equals(notification.getUserId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification introuvable");
+        }
+
+        return notification;
+    }
+
+    private String resolveUserId(String email) {
+        String normalizedEmail = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+        UtilisateurDocument utilisateur = utilisateurRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Utilisateur introuvable"));
+        return utilisateur.getId();
     }
 }

@@ -4,6 +4,12 @@ import com.emsi.marches_backend.dto.offre.OffreFilter;
 import com.emsi.marches_backend.model.OffreMarcheDocument;
 import org.springframework.data.domain.Page;
 
+import java.util.List;
+
 public interface OffreRepositoryCustom {
     Page<OffreMarcheDocument> searchByFilters(OffreFilter filter);
+
+    List<String> findDistinctSecteurs();
+
+    List<String> findDistinctLocalisations();
 }

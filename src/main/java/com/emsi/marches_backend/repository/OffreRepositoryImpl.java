@@ -16,7 +16,9 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 @Repository
 public class OffreRepositoryImpl implements OffreRepositoryCustom {
@@ -59,12 +61,35 @@ public class OffreRepositoryImpl implements OffreRepositoryCustom {
         List<Criteria> andCriteria = new ArrayList<>();
 
         if (hasText(filter.secteur())) {
-            andCriteria.add(Criteria.where("secteur").is(filter.secteur().trim()));
+            andCriteria.add(Criteria.where("secteur").regex(buildContainsRegex(filter.secteur()), "i"));
+        }
+
+        if (hasText(filter.localisation())) {
+            andCriteria.add(Criteria.where("localisation").regex(buildContainsRegex(filter.localisation()), "i"));
         }
 
         LocalDate dateMin = filter.dateMin();
         if (dateMin != null) {
             andCriteria.add(Criteria.where("datePublication").gte(dateMin));
+        }
+
+        LocalDate dateLimiteMax = filter.dateLimiteMax();
+        if (dateLimiteMax != null) {
+            andCriteria.add(Criteria.where("dateCloture").lte(dateLimiteMax));
+        }
+
+        if (hasText(filter.statut())) {
+            LocalDate today = LocalDate.now();
+            String normalizedStatut = filter.statut().trim().toUpperCase(Locale.ROOT);
+            switch (normalizedStatut) {
+                case "OUVERT" -> andCriteria.add(new Criteria().orOperator(
+                        Criteria.where("dateCloture").gte(today),
+                        Criteria.where("dateCloture").is(null)
+                ));
+                case "CLOS" -> andCriteria.add(Criteria.where("dateCloture").lt(today));
+                default -> {
+                }
+            }
         }
 
         if (!andCriteria.isEmpty()) {
@@ -91,5 +116,37 @@ public class OffreRepositoryImpl implements OffreRepositoryCustom {
 
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
+    }
+
+    private String buildContainsRegex(String value) {
+        return ".*" + java.util.regex.Pattern.quote(value.trim()) + ".*";
+    }
+
+    @Override
+    public List<String> findDistinctSecteurs() {
+        return mongoTemplate.query(OffreMarcheDocument.class)
+                .distinct("secteur")
+                .as(String.class)
+                .all()
+                .stream()
+                .filter(this::hasText)
+                .map(String::trim)
+                .distinct()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList();
+    }
+
+    @Override
+    public List<String> findDistinctLocalisations() {
+        return mongoTemplate.query(OffreMarcheDocument.class)
+                .distinct("localisation")
+                .as(String.class)
+                .all()
+                .stream()
+                .filter(this::hasText)
+                .map(String::trim)
+                .distinct()
+                .sorted(Comparator.comparing(String::toLowerCase))
+                .toList();
     }
 }

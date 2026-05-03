@@ -1,6 +1,7 @@
 package com.emsi.marches_backend.service;
 
 import com.emsi.marches_backend.dto.offre.OffreFilter;
+import com.emsi.marches_backend.dto.offre.OffreFilterOptionsResponse;
 import com.emsi.marches_backend.dto.offre.OffreResponse;
 import com.emsi.marches_backend.model.OffreMarcheDocument;
 import com.emsi.marches_backend.repository.OffreRepository;
@@ -18,6 +19,13 @@ public class OffreService {
 
     public Page<OffreResponse> searchByFilters(OffreFilter filter) {
         return offreRepository.searchByFilters(filter).map(this::toResponse);
+    }
+
+    public OffreFilterOptionsResponse getFilterOptions() {
+        return new OffreFilterOptionsResponse(
+                offreRepository.findDistinctSecteurs(),
+                offreRepository.findDistinctLocalisations()
+        );
     }
 
     private OffreResponse toResponse(OffreMarcheDocument offre) {
