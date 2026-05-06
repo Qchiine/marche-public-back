@@ -23,6 +23,9 @@ import java.util.Locale;
 @Repository
 public class OffreRepositoryImpl implements OffreRepositoryCustom {
 
+    private static final String FIELD_DATE_PUBLICATION = "datePublication";
+    private static final String FIELD_DATE_CLOTURE = "dateCloture";
+
     private final MongoTemplate mongoTemplate;
 
     public OffreRepositoryImpl(MongoTemplate mongoTemplate) {
@@ -70,25 +73,24 @@ public class OffreRepositoryImpl implements OffreRepositoryCustom {
 
         LocalDate dateMin = filter.dateMin();
         if (dateMin != null) {
-            andCriteria.add(Criteria.where("datePublication").gte(dateMin));
+            andCriteria.add(Criteria.where(FIELD_DATE_PUBLICATION).gte(dateMin));
         }
 
         LocalDate dateLimiteMax = filter.dateLimiteMax();
         if (dateLimiteMax != null) {
-            andCriteria.add(Criteria.where("dateCloture").lte(dateLimiteMax));
+            andCriteria.add(Criteria.where(FIELD_DATE_CLOTURE).lte(dateLimiteMax));
         }
 
         if (hasText(filter.statut())) {
             LocalDate today = LocalDate.now();
             String normalizedStatut = filter.statut().trim().toUpperCase(Locale.ROOT);
-            switch (normalizedStatut) {
-                case "OUVERT" -> andCriteria.add(new Criteria().orOperator(
-                        Criteria.where("dateCloture").gte(today),
-                        Criteria.where("dateCloture").is(null)
+            if ("OUVERT".equals(normalizedStatut)) {
+                andCriteria.add(new Criteria().orOperator(
+                        Criteria.where(FIELD_DATE_CLOTURE).gte(today),
+                        Criteria.where(FIELD_DATE_CLOTURE).is(null)
                 ));
-                case "CLOS" -> andCriteria.add(Criteria.where("dateCloture").lt(today));
-                default -> {
-                }
+            } else if ("CLOS".equals(normalizedStatut)) {
+                andCriteria.add(Criteria.where(FIELD_DATE_CLOTURE).lt(today));
             }
         }
 
@@ -101,16 +103,16 @@ public class OffreRepositoryImpl implements OffreRepositoryCustom {
         String normalizedSort = requestedSort == null ? "" : requestedSort.trim().toLowerCase();
 
         switch (normalizedSort) {
-            case "date_asc" -> query.with(Sort.by(Sort.Direction.ASC, "datePublication"));
+            case "date_asc" -> query.with(Sort.by(Sort.Direction.ASC, FIELD_DATE_PUBLICATION));
             case "pertinence" -> {
                 if (hasMotCle && query instanceof TextQuery textQuery) {
                     textQuery.sortByScore();
                 } else {
-                    query.with(Sort.by(Sort.Direction.DESC, "datePublication"));
+                    query.with(Sort.by(Sort.Direction.DESC, FIELD_DATE_PUBLICATION));
                 }
             }
-            case "date_desc", "" -> query.with(Sort.by(Sort.Direction.DESC, "datePublication"));
-            default -> query.with(Sort.by(Sort.Direction.DESC, "datePublication"));
+            case "date_desc", "" -> query.with(Sort.by(Sort.Direction.DESC, FIELD_DATE_PUBLICATION));
+            default -> query.with(Sort.by(Sort.Direction.DESC, FIELD_DATE_PUBLICATION));
         }
     }
 
