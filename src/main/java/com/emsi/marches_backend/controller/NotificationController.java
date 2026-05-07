@@ -18,9 +18,9 @@ public class NotificationController {
     private final NotificationService notificationService;
 
     @GetMapping
-    public ResponseEntity<?> getNotifications(Authentication authentication) {
+    public ResponseEntity<java.util.List<NotificationDocument>> getNotifications(Authentication authentication) {
         String email = authentication.getName();
-        var notifications = notificationService.getUserNotifications(email, null);
+        var notifications = notificationService.getUserNotifications(email);
         return ResponseEntity.ok(notifications);
     }
 

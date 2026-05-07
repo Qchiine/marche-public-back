@@ -1,5 +1,6 @@
 package com.emsi.marches_backend.service;
 
+import com.emsi.marches_backend.exception.ServiceCommunicationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
@@ -7,8 +8,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
 /**
  * Service Client pour appels RPC distribués (RMI-like Pattern)
@@ -39,11 +40,11 @@ public class DistributedServiceClient {
                 return response.getBody();
             } else {
                 log.error("Erreur service distant: {}", response.getStatusCode());
-                throw new RuntimeException("Service distant retourné erreur: " + response.getStatusCode());
+                throw new ServiceCommunicationException("Service distant retourné erreur: " + response.getStatusCode());
             }
         } catch (RestClientException e) {
             log.error("Erreur communication service distant: {}", e.getMessage());
-            throw new RuntimeException("Communication avec service distant échouée", e);
+            throw new ServiceCommunicationException("Communication avec service distant échouée", e);
         }
     }
 
@@ -60,30 +61,29 @@ public class DistributedServiceClient {
                 log.info("Données reçues du service distant");
                 return response.getBody();
             } else {
-                throw new RuntimeException("Service distant erreur: " + response.getStatusCode());
+                throw new ServiceCommunicationException("Service distant erreur: " + response.getStatusCode());
             }
         } catch (RestClientException e) {
             log.error("Erreur appel GET service distant: {}", e.getMessage());
-            throw new RuntimeException("Appel GET échoué", e);
+            throw new ServiceCommunicationException("Appel GET échoué", e);
         }
     }
 
 
     public <T> T callWithRetry(String serviceUrl, Object requestBody, Class<T> responseType, int maxRetries) {
         int attempt = 0;
-        RestClientException lastException = null;
+        ServiceCommunicationException lastException = null;
 
         while (attempt < maxRetries) {
             try {
                 log.info("Tentative {} vers service distant: {}", attempt + 1, serviceUrl);
                 return callRemoteService(serviceUrl, requestBody, responseType);
-            } catch (RestClientException e) {
+            } catch (ServiceCommunicationException e) {
                 lastException = e;
                 attempt++;
                 if (attempt < maxRetries) {
                     try {
-
-                        long delayMs = (long) Math.pow(2, attempt - 1) * 1000;
+                        long delayMs = (long) Math.pow(2, (double) attempt - 1) * 1000;
                         log.warn("Erreur tentative {}, retry dans {}ms", attempt, delayMs);
                         Thread.sleep(delayMs);
                     } catch (InterruptedException ie) {
@@ -95,6 +95,6 @@ public class DistributedServiceClient {
         }
 
         log.error("Tous les retry échoués après {} tentatives", maxRetries);
-        throw new RuntimeException("Service distant inaccessible après " + maxRetries + " tentatives", lastException);
+        throw new ServiceCommunicationException("Service distant inaccessible après " + maxRetries + " tentatives", lastException);
     }
 }

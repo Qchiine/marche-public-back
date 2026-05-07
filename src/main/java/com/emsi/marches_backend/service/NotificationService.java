@@ -37,28 +37,37 @@ public class NotificationService {
         List<UtilisateurDocument> utilisateurs = utilisateurRepository.findAll();
 
         for (UtilisateurDocument utilisateur : utilisateurs) {
-            if (utilisateur.getStatut() == StatutCompteEnum.ACTIF && matchesUserProfile(offre, utilisateur.getProfil())) {
-                if (!notificationRepository.existsByUserIdAndOffreId(utilisateur.getId(), offre.getId())) {
-                    NotificationDocument notification = NotificationDocument.builder()
-                            .userId(utilisateur.getId())
-                            .offreId(offre.getId())
-                            .referenceOffre(offre.getReference())
-                            .titre(offre.getIntitule())
-                            .message("Nouvelle offre en " + offre.getSecteur() + " a " + offre.getLocalisation())
-                            .lue(false)
-                            .build();
-
-                    NotificationDocument savedNotif = notificationRepository.save(notification);
-                    log.info("Notification creee pour utilisateur {} - Offre {}", utilisateur.getId(), offre.getReference());
-
-                    if (shouldSendEmail(utilisateur)) {
-                        emailNotificationService.sendNewOfferNotification(utilisateur, offre, savedNotif);
-                    } else {
-                        log.info("Email differe pour utilisateur {} selon la frequence {}", utilisateur.getEmail(),
-                                utilisateur.getProfil() != null ? utilisateur.getProfil().getFrequenceNotification() : NotificationFrequence.IMMEDIATE);
-                    }
-                }
+            if (utilisateur.getStatut() == StatutCompteEnum.ACTIF) {
+                processUserNotification(offre, utilisateur);
             }
+        }
+    }
+
+    private void processUserNotification(OffreMarcheDocument offre, UtilisateurDocument utilisateur) {
+        if (!matchesUserProfile(offre, utilisateur.getProfil())) {
+            return;
+        }
+        if (notificationRepository.existsByUserIdAndOffreId(utilisateur.getId(), offre.getId())) {
+            return;
+        }
+
+        NotificationDocument notification = NotificationDocument.builder()
+                .userId(utilisateur.getId())
+                .offreId(offre.getId())
+                .referenceOffre(offre.getReference())
+                .titre(offre.getIntitule())
+                .message("Nouvelle offre en " + offre.getSecteur() + " a " + offre.getLocalisation())
+                .lue(false)
+                .build();
+
+        NotificationDocument savedNotif = notificationRepository.save(notification);
+        log.info("Notification creee pour utilisateur {} - Offre {}", utilisateur.getId(), offre.getReference());
+
+        if (shouldSendEmail(utilisateur)) {
+            emailNotificationService.sendNewOfferNotification(utilisateur, offre, savedNotif);
+        } else {
+            log.info("Email differe pour utilisateur {} selon la frequence {}", utilisateur.getEmail(),
+                    utilisateur.getProfil() != null ? utilisateur.getProfil().getFrequenceNotification() : NotificationFrequence.IMMEDIATE);
         }
     }
 
@@ -141,7 +150,7 @@ public class NotificationService {
         return normalized.toLowerCase(Locale.ROOT).trim();
     }
 
-    public List<NotificationDocument> getUserNotifications(String email, Pageable pageable) {
+    public List<NotificationDocument> getUserNotifications(String email) {
         String userId = resolveUserId(email);
         return notificationRepository.findByUserIdOrderByDateCreationDesc(userId);
     }

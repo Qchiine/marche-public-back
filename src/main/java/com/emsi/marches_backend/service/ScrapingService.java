@@ -1,17 +1,23 @@
 package com.emsi.marches_backend.service;
 
+import com.emsi.marches_backend.dto.offre.OffreFilter;
+import com.emsi.marches_backend.exception.ScrapingException;
 import com.emsi.marches_backend.model.OffreMarcheDocument;
 import com.emsi.marches_backend.model.ScraperLogDocument;
 import com.emsi.marches_backend.repository.OffreRepository;
-import com.emsi.marches_backend.dto.offre.OffreFilter;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -108,7 +114,7 @@ public class ScrapingService {
                         .build();
                 scraperLogService.save(scraperLog);
 
-                throw new RuntimeException("Erreur lors du scraping: " + response.statusCode());
+                throw new ScrapingException("Erreur lors du scraping: " + response.statusCode());
             }
 
         } catch (Exception e) {
@@ -128,36 +134,36 @@ public class ScrapingService {
             scraperLogService.save(logDoc);
 
             log.error("Erreur communication API scraping: {}", e.getMessage());
-            throw new RuntimeException("Echec de l'appel API scraping", e);
+            throw new ScrapingException("Echec de l'appel API scraping", e);
         }
     }
 
     public Map<String, Object> scrapeOffresWithRetry(int maxRetries) {
         int attempt = 0;
-        RuntimeException lastException = null;
+        ScrapingException lastException = null;
 
         while (attempt < maxRetries) {
             try {
                 log.info("Tentative {} de scraping", attempt + 1);
                 return scrapeOffres();
-            } catch (RuntimeException e) {
+            } catch (ScrapingException e) {
                 lastException = e;
                 attempt++;
                 if (attempt < maxRetries) {
                     try {
-                        long delayMs = (long) Math.pow(2, attempt - 1) * 1000;
+                        long delayMs = (long) Math.pow(2, (double) attempt - 1) * 1000;
                         log.warn("Tentative {} echouee, retry dans {} ms", attempt, delayMs);
                         Thread.sleep(delayMs);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
-                        break;
+                        return Map.of("statut", "INTERRUPU", "message", "Scraping annule");
                     }
                 }
             }
         }
 
         log.error("Scraping echoue apres {} tentatives", maxRetries);
-        throw new RuntimeException("Scraping impossible apres " + maxRetries + " tentatives", lastException);
+        throw new ScrapingException("Scraping impossible apres " + maxRetries + " tentatives", lastException);
     }
 
     private String buildSearchRequestBody(OffreFilter filter) {
@@ -183,18 +189,12 @@ public class ScrapingService {
 
         for (Map<String, Object> rawOffer : rawOffers) {
             OffreMarcheDocument mapped = mapToOffreDocument(rawOffer);
-            if (mapped == null || mapped.getReference() == null || mapped.getReference().isBlank()) {
-                continue;
+            if (mapped != null && mapped.getReference() != null && !mapped.getReference().isBlank()) {
+                totalOffers++;
+                if (offreRepository.findByReference(mapped.getReference()).isEmpty()) {
+                    newOffers.add(offreRepository.save(mapped));
+                }
             }
-
-            totalOffers++;
-            Optional<OffreMarcheDocument> existing = offreRepository.findByReference(mapped.getReference());
-            if (existing.isPresent()) {
-                continue;
-            }
-
-            OffreMarcheDocument saved = offreRepository.save(mapped);
-            newOffers.add(saved);
         }
 
         return new ScrapeProcessingResult(totalOffers, newOffers);
@@ -361,7 +361,8 @@ public class ScrapingService {
         for (DateTimeFormatter formatter : formatters) {
             try {
                 return LocalDate.parse(raw.trim(), formatter);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.debug("Format date invalide pour {}: {}", formatter, e.getMessage());
             }
         }
 
@@ -370,7 +371,8 @@ public class ScrapingService {
             String candidate = normalized.substring(0, 10).replace('/', '-');
             try {
                 return LocalDate.parse(candidate, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.debug("Format date normalise invalide: {}", e.getMessage());
             }
         }
 

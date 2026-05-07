@@ -26,19 +26,27 @@ public class EmailNotificationService {
 
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(utilisateur.getEmail());
-            message.setSubject("Nouvelle offre en " + offre.getSecteur() + " - VeilleMarché.ma");
+            message.setSubject("""
+                Nouvelle offre en %s - VeilleMarché.ma
+                """.formatted(offre.getSecteur()).trim());
 
-            String contenu = String.format(
-                    "Bonjour %s %s,\n\n" +
-                    "Une nouvelle offre correspondant à vos critères a été publiée:\n\n" +
-                    "Titre: %s\n" +
-                    "Organisme: %s\n" +
-                    "Secteur: %s\n" +
-                    "Localisation: %s\n" +
-                    "Référence: %s\n" +
-                    "Clôture: %s\n\n" +
-                    "Consultez l'offre complète sur notre plateforme.\n\n" +
-                    "Cordialement,\nVeilleMarché.ma",
+            String contenu = """
+                    Bonjour %s %s,
+                    
+                    Une nouvelle offre correspondant à vos critères a été publiée:
+                    
+                    Titre: %s
+                    Organisme: %s
+                    Secteur: %s
+                    Localisation: %s
+                    Référence: %s
+                    Clôture: %s
+                    
+                    Consultez l'offre complète sur notre plateforme.
+                    
+                    Cordialement,
+                    VeilleMarché.ma
+                    """.formatted(
                     utilisateur.getPrenom(),
                     utilisateur.getNom(),
                     offre.getIntitule(),

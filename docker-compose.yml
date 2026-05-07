@@ -1,4 +1,19 @@
 services:
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: sonarqube-marches
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-extensions:/opt/sonarqube/extensions
+      - sonarqube-logs:/opt/sonarqube/logs
+      - sonarqube-conf:/opt/sonarqube/conf
+    networks:
+      - marche_network
+
   mongo:
     image: mongo:6
     container_name: mongo-marches
@@ -78,6 +93,10 @@ services:
 
 volumes:
   mongo-data:
+  sonarqube-data:
+  sonarqube-extensions:
+  sonarqube-logs:
+  sonarqube-conf:
 
 networks:
   marche_network:

@@ -1,5 +1,6 @@
 package com.emsi.marches_backend.service;
 
+import com.emsi.marches_backend.exception.BusinessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,7 +20,7 @@ public class TransactionService {
             log.info("Transaction REQUIRED complétée");
         } catch (Exception e) {
             log.error("Erreur transaction: {}", e.getMessage());
-            throw new RuntimeException("Opération échouée, rollback effectué", e);
+            throw new BusinessException("Opération échouée, rollback effectué", e);
         }
     }
 
@@ -31,7 +32,7 @@ public class TransactionService {
             log.info("Transaction REQUIRES_NEW complétée");
         } catch (Exception e) {
             log.error("Erreur transaction isolée: {}", e.getMessage());
-            throw new RuntimeException("Opération indépendante échouée", e);
+            throw new BusinessException("Opération indépendante échouée", e);
         }
     }
 
@@ -43,7 +44,7 @@ public class TransactionService {
             log.info("Opération lecture complétée");
         } catch (Exception e) {
             log.error("Erreur lecture: {}", e.getMessage());
-            throw new RuntimeException("Opération de lecture échouée", e);
+            throw new BusinessException("Opération de lecture échouée", e);
         }
     }
     @Transactional(propagation = Propagation.NESTED, rollbackFor = Exception.class)
@@ -54,6 +55,7 @@ public class TransactionService {
             log.info("Transaction NESTED complétée");
         } catch (Exception e) {
             log.error("Erreur transaction imbriquée: {}", e.getMessage());
+            throw new BusinessException("Transaction imbriquée échouée", e);
         }
     }
 }
