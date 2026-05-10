@@ -191,8 +191,13 @@ public class ScrapingService {
             OffreMarcheDocument mapped = mapToOffreDocument(rawOffer);
             if (mapped != null && mapped.getReference() != null && !mapped.getReference().isBlank()) {
                 totalOffers++;
-                if (offreRepository.findByReference(mapped.getReference()).isEmpty()) {
+                Optional<OffreMarcheDocument> existing = offreRepository.findByReference(mapped.getReference());
+                if (existing.isEmpty()) {
                     newOffers.add(offreRepository.save(mapped));
+                } else if (isBlank(existing.get().getUrlOfficielle()) && !isBlank(mapped.getUrlOfficielle())) {
+                    OffreMarcheDocument offerToUpdate = existing.get();
+                    offerToUpdate.setUrlOfficielle(mapped.getUrlOfficielle());
+                    offreRepository.save(offerToUpdate);
                 }
             }
         }
@@ -342,6 +347,10 @@ public class ScrapingService {
             }
         }
         return null;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private LocalDate parseDate(String raw) {
