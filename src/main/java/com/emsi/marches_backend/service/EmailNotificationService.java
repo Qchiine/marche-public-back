@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
 
 @Slf4j
 @Service
@@ -66,6 +67,38 @@ public class EmailNotificationService {
 
         } catch (Exception e) {
             log.error("Erreur lors de l'envoi de l'email: {}", e.getMessage());
+        }
+    }
+
+    @Async
+    public void sendLoginNotification(UtilisateurDocument utilisateur) {
+        try {
+            log.info("Envoi email de connexion pour {}", utilisateur.getEmail());
+
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(utilisateur.getEmail());
+            message.setSubject("Nouvelle connexion - VeilleMarche.ma");
+            message.setText("""
+                    Bonjour %s %s,
+
+                    Une connexion a ete effectuee sur votre compte VeilleMarche.ma le %s.
+
+                    Si vous etes a l'origine de cette action, vous pouvez ignorer cet email.
+                    Sinon, changez votre mot de passe rapidement depuis la page de connexion.
+
+                    Cordialement,
+                    VeilleMarche.ma
+                    """.formatted(
+                    utilisateur.getPrenom(),
+                    utilisateur.getNom(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+            ));
+            message.setFrom("noreply@veillemarche.ma");
+
+            mailSender.send(message);
+            log.info("Email de connexion envoye avec succes a {}", utilisateur.getEmail());
+        } catch (Exception e) {
+            log.error("Erreur lors de l'envoi de l'email de connexion: {}", e.getMessage());
         }
     }
 }

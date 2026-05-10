@@ -21,15 +21,18 @@ public class AuthService {
     private final UtilisateurRepository utilisateurRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final EmailNotificationService emailNotificationService;
 
     public AuthService(
             UtilisateurRepository utilisateurRepository,
             PasswordEncoder passwordEncoder,
-            JwtTokenProvider jwtTokenProvider
+            JwtTokenProvider jwtTokenProvider,
+            EmailNotificationService emailNotificationService
     ) {
         this.utilisateurRepository = utilisateurRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.emailNotificationService = emailNotificationService;
     }
 
     public AuthResponse inscrireNouveau(RegisterRequest request) {
@@ -59,6 +62,8 @@ public class AuthService {
         if (!passwordEncoder.matches(request.password(), utilisateur.getMotDePasseHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email ou mot de passe invalide");
         }
+
+        emailNotificationService.sendLoginNotification(utilisateur);
 
         return buildAuthResponse(utilisateur);
     }

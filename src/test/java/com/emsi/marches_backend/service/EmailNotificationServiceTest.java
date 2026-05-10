@@ -53,4 +53,22 @@ class EmailNotificationServiceTest {
         assertThat(message.getSubject()).contains("IT");
         assertThat(message.getText()).contains("Test Offer");
     }
+
+    @Test
+    void sendLoginNotification_shouldSendEmail() {
+        UtilisateurDocument user = new UtilisateurDocument();
+        user.setPrenom("John");
+        user.setNom("Doe");
+        user.setEmail("john@example.com");
+
+        emailNotificationService.sendLoginNotification(user);
+
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(captor.capture());
+        SimpleMailMessage message = captor.getValue();
+
+        assertThat(message.getTo()).containsExactly("john@example.com");
+        assertThat(message.getSubject()).contains("Nouvelle connexion");
+        assertThat(message.getText()).contains("connexion");
+    }
 }
